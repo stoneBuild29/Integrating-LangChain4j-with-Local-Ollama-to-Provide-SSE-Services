@@ -1,100 +1,121 @@
-# Project Title: Integrating LangChain4j with Local Ollama to Provide SSE Services
+# Ollama LangChain Integration with SSE Streaming
 
 ## Project Overview
 
-This project aims to integrate [LangChain4j](https://github.com/langchain4j/langchain4j), a Java adaptation of the LangChain framework, with a locally hosted [Ollama](https://docs.langchain4j.dev/integrations/language-models/ollama/) language model. The integration facilitates real-time AI responses through Server-Sent Events (SSE), enabling efficient and seamless client-server communication.
+This project demonstrates how to integrate [LangChain4j](https://github.com/langchain4j/langchain4j) with a locally hosted [Ollama](https://docs.langchain4j.dev/integrations/language-models/ollama/) model to provide real-time AI-generated responses via Server-Sent Events (SSE). The application is built using Spring Boot and leverages dependency injection for clean bean management.
 
-## Project Structure
+## Features
 
-The project is organized into the following key components:
-
-- **src/main/java/com/example/ai/**: Contains the core Java classes implementing the AI functionalities.
-  - **OllamaClient.java**: Manages HTTP interactions with the Ollama service.
-  - **AIController.java**: Defines RESTful endpoints to handle client requests and stream AI responses via SSE.
-  - **CorsConfig.java**: Configures Cross-Origin Resource Sharing (CORS) settings to allow cross-origin requests.
-- **src/main/resources/**: Holds configuration files and resources.
-- **pom.xml**: Maven configuration file managing project dependencies, including LangChain4j and Spring Boot.
-
-## Module Descriptions
-
-### 1. OllamaClient Class
-
-**Functionality**: Encapsulates HTTP interactions with the Ollama service, facilitating streaming of AI-generated responses.
-
-**Implementation Details**:
-
-- Utilizes `OkHttpClient` to send POST requests to the Ollama API endpoint (`http://localhost:11434/api/generate`).
-- Implements a callback mechanism (`ResponseBodyCallback`) to process Ollama's streaming responses in real-time by reading JSON data line by line.
-- Supports asynchronous, non-blocking operations using the `enqueue` method to prevent blocking the main execution thread.
-
-### 2. AIController Class
-
-**Functionality**: Provides an SSE endpoint to clients, streaming AI-generated responses from Ollama.
-
-**Implementation Details**:
-
-- Defines an SSE endpoint (`/ai/generate-stream`) using the `@GetMapping` annotation, accepting a `prompt` parameter from clients.
-- Creates an `SseEmitter` object with a 60-second timeout to manage the SSE connection lifecycle.
-- Invokes `OllamaClient.generateStream`, utilizing the callback mechanism to send chunks of Ollama's responses to clients in real-time.
-- Parses JSON responses from Ollama to extract the `response` field using regular expressions for streamlined data processing.
-
-### 3. CORS Configuration (CorsConfig Class)
-
-**Functionality**: Configures CORS settings to permit cross-origin GET requests to the `/ai/**` endpoints.
-
-**Implementation Details**:
-
-- Implements the `WebMvcConfigurer` interface and overrides the `addCorsMappings` method.
-- Sets up CORS mappings to allow all origins (`allowedOrigins("*")`) and GET methods for paths matching `/ai/**`.
-- This configuration ensures that web applications hosted on different domains can access the AI services without encountering cross-origin restrictions.
-
-## Getting Started
-
-To set up and run the project locally, follow these steps:
-
-1. **Clone the Repository**:
-
-```bash
-git clone https://github.com/yourusername/your-repository.git
-```
-
-2. **Navigate to the Project Directory**:
-
-```bash
-cd your-repository
-```
-
-3. **Install Dependencies**:
-
-Ensure you have Maven installed. Then, execute:
-
-```bash
-mvn clean install
-```
-
-4. **Run the Application**:
-
-```bash
-mvn spring-boot:run
-```
-
-5. **Access the SSE Endpoint**:
-
-Open a browser or use a tool like `curl` to access:
-
-```
-http://localhost:8080/ai/generate-stream?prompt=Your+AI+Prompt
-```
+- **Ollama Streaming Chat Model**: Uses LangChain4j's abstraction to send streaming requests to a locally deployed Ollama service.
+- **SSE Endpoint**: Provides a REST endpoint that streams generated tokens to the client in real time.
+- **Spring Dependency Injection**: Ensures clean bean lifecycle management and inter-bean communication.
+- **CORS Support**: Allows cross-origin GET requests for the `/ai/**` endpoints.
 
 ## Prerequisites
 
-- **Java Development Kit (JDK)**: Ensure JDK 11 or higher is installed.
-- **Maven**: Required for managing project dependencies and building the application.
-- **Ollama**: Install and run the Ollama service locally. Refer to the [Ollama documentation](https://docs.langchain4j.dev/integrations/language-models/ollama/) for setup instructions.
+- **Java 11 or higher**
+- **Maven** for dependency management and building the project.
+- **Ollama Service**: Ensure your local Ollama model is running and accessible at `http://172.168.0.93:11434`.
+- **Internet Access**: For downloading dependencies.
 
-## References
+## Project Structure
 
-- [LangChain4j GitHub Repository](https://github.com/langchain4j/langchain4j)
-- [Integrating Java with Ollama Using LangChain4j](https://tpbabparn.medium.com/java-ollama-unlock-capability-of-generative-ai-to-java-developer-with-langchain4j-model-on-c814f97d9676)
+```
+.
+├── pom.xml
+├── src
+│   ├── main
+│   │   ├── java
+│   │   │   └── com
+│   │   │       └── ajjtcx
+│   │   │           ├── client
+│   │   │           │   └── OllamaLangChainClient.java
+│   │   │           └── controller
+│   │   │               └── AIController.java
+│   │   └── resources
+│   │       └── application.properties
+└── README.md
+```
 
-This README provides a comprehensive overview of the project's objectives, structure, and module functionalities, serving as a guide for understanding and deploying the integrated AI service.
+### Module Details
+
+1. **OllamaLangChainClient.java**
+
+  - **Purpose**:  
+    Encapsulates the logic for interacting with the Ollama model using LangChain4j. It defines:
+
+    - A **bean** (`streamingChatModel`) configured as an `OllamaStreamingChatModel` that uses a specified base URL, model name, and temperature setting.
+    - A **streaming method** (`generateStream`) that sends a prompt to the Ollama service and processes the streaming response via a custom `StreamingResponseHandler`.
+
+  - **Key Points**:
+    - Uses `@Configuration` and `@Component` to let Spring manage bean creation.
+    - The `generateStream` method creates an `SseEmitter` that streams tokens to the client.
+    - The streaming response handler processes tokens with `onNext`, completes the emitter in `onComplete`, and handles errors with `onError`.
+
+2. **AIController.java**
+
+  - **Purpose**:  
+    Exposes an SSE endpoint `/ai/generate-stream` to the client. It accepts a prompt parameter and returns an `SseEmitter` that streams the AI-generated response.
+
+  - **Key Points**:
+    - Uses constructor injection to obtain an instance of `OllamaLangChainClient`.
+    - Annotated with `@RestController` and maps to `/ai`, ensuring the SSE endpoint is properly exposed.
+
+## How to Run
+
+1. **Clone the Repository**:
+
+   ```bash
+   git clone https://github.com/yourusername/your-repository.git
+   cd your-repository
+   ```
+
+2. **Build the Project**:
+
+   Ensure Maven is installed, then run:
+
+   ```bash
+   mvn clean install
+   ```
+
+3. **Run the Application**:
+
+   Start the Spring Boot application:
+
+   ```bash
+   mvn spring-boot:run
+   ```
+
+4. **Test the SSE Endpoint**:
+
+   You can test the SSE endpoint using a tool like Apifox, Postman, or directly via your browser. For example, open your browser and navigate to:
+
+   ```
+   http://localhost:8080/ai/generate-stream?prompt=Hello+Ollama
+   ```
+
+   You should see a stream of tokens as the AI generates the response.
+
+## Fix bugs 
+Q: Method annotated with @Bean is called directly. Use dependency injection instead.
+```
+        streamingChatModel.generate(prompt, new StreamingResponseHandler<>() {
+```
+
+A: When a class is not annotated with `@Configuration`, the methods marked with `@Bean` are treated as plain methods, and Spring does not create a CGLIB-based proxy to manage and intercept calls between them. This means that if one `@Bean` method directly calls another within the same class, it bypasses Spring’s container, resulting in direct method invocation rather than returning the managed bean instance.
+
+Adding `@Configuration` tells Spring to enhance the class so that it can manage the lifecycle of the beans and properly handle inter-bean references. Without it, calling one `@Bean` method from another won’t leverage Spring’s dependency injection and may lead to errors or unexpected behavior.
+
+## Additional Notes
+
+- **Dependency Injection and @Configuration**:  
+  The class `OllamaLangChainClient` is annotated with both `@Component` and `@Configuration`. This ensures that:
+  - The bean `streamingChatModel()` is managed by Spring.
+  - Any inter-bean calls (e.g., invoking `streamingChatModel()` within `generateStream()`) are properly handled by Spring’s CGLIB-enhanced proxies. Without the `@Configuration` annotation, such calls would bypass dependency injection, leading to unexpected behavior.
+
+- **Error Handling**:  
+  The SSE emitter is configured with a 60-second timeout and includes error handling in the streaming response handler. Adjust the timeout and error responses as needed for your use case.
+
+---
+
+Feel free to customize this README further to suit your project details and guidelines.
